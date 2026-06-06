@@ -4,69 +4,34 @@
 
 ## 数据获取流程
 
-在分析任何一家公司之前，先获取以下数据：
+### Step 1: 脚本获取财务+估值数据
 
-### 按市场选择数据源
+```bash
+# A股
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py a <代码> finance
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py a <代码> valuation
 
-#### A股公司
+# 港股
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py hk <代码> finance
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py hk <代码> valuation
 
-| 数据类型 | 数据源 | 网址 | 获取方式 |
-|----------|--------|------|----------|
-| 公司概况/主营业务 | 东方财富-公司资料 | https://emweb.securities.eastmoney.com/PC_HSF10/CompanySurvey/Index?type=web&code=SZ000001 | WebFetch / agent-browser |
-| 财务数据(利润表/资产负债表/现金流) | 东方财富-财务分析 | https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/Index?type=web&code=SZ000001 | agent-browser |
-| 估值数据(PE/PB/PS) | 同花顺-个股页面 | https://stockpage.10jqka.com.cn/000001/ | agent-browser |
-| 公司公告 | 巨潮资讯 | https://www.cninfo.com.cn/new/disclosure | WebFetch |
-| 行业对比 | 东方财富-行业对比 | 搜索获取 | WebSearch |
-| 研报/分析师观点 | 东方财富研报 | https://data.eastmoney.com/report/ | WebSearch |
+# 美股
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py us <ticker> finance
+python3 ${CODEBUDDY_SKILL_DIR}/scripts/run.py us <ticker> valuation
+```
 
-> 代码格式：SZ=深圳（000/002/003/300开头），SH=上海（600/601/603/688开头）
-
-#### 港股公司
-
-| 数据类型 | 数据源 | 网址 | 获取方式 |
-|----------|--------|------|----------|
-| 公司概况/财务 | 雪球 | https://xueqiu.com/S/00700 （腾讯示例） | WebFetch / agent-browser |
-| 财务数据详细 | 富途 | https://www.futunn.com/stock/00700-HK/financial/income-statement | agent-browser |
-| 公司公告 | 港交所披露易 | https://www.hkexnews.hk | WebFetch |
-| 估值/行情 | 雪球/富途 | 同上 | WebFetch |
-| 研报 | 搜索 | "[公司名] 研报 评级" | WebSearch |
-
-> 代码格式：港股五位数字（如00700=腾讯，09988=阿里巴巴）
-
-#### 美股公司（用于海外映射参考）
-
-| 数据类型 | 数据源 | 网址 | 获取方式 |
-|----------|--------|------|----------|
-| 财务数据 | Yahoo Finance | https://finance.yahoo.com/quote/NVDA/financials/ | WebFetch |
-| 历史财务对比 | Macrotrends | https://www.macrotrends.net/stocks/charts/NVDA/nvidia/revenue | WebFetch |
-| 公司公告 | SEC EDGAR | https://www.sec.gov/cgi-bin/browse-edgar?company=&CIK=NVDA | WebFetch |
-| 财报电话会 | Seeking Alpha / Earnings call | 搜索 "[公司] earnings call transcript" | WebSearch |
-
-### 数据获取步骤
-
-分析一家公司时，按以下顺序获取数据：
+### Step 2: WebSearch 补充定性信息
 
 ```
-Step 1: 搜索公司基本信息
-  → WebSearch: "[公司名] 主营业务 商业模式 竞争格局"
-
-Step 2: 获取财务数据（最近3年）
-  → A股: agent-browser 访问东方财富财务分析页面
-  → 港股: agent-browser 访问雪球/富途财务页面
-  → 提取: 营收、净利润、EBIT、经营现金流、自由现金流
-
-Step 3: 获取估值数据
-  → WebSearch: "[公司名] PE PB PS 估值 历史分位"
-  → 或 agent-browser 抓取同花顺/雪球估值页面
-
-Step 4: 获取行业对比数据
-  → WebSearch: "[公司名] 同行业 对比 市占率"
-  → WebSearch: "[行业] 竞争格局 龙头"
-
-Step 5: 补充信息（可选）
-  → 最新研报观点: WebSearch "[公司名] 研报 2025"
-  → 最新公告: 巨潮/港交所
+WebSearch: "[公司名] 主营业务 商业模式 竞争格局"
+WebSearch: "[公司名] 护城河 核心竞争力"
+WebSearch: "[公司名] 同行业 对比 市占率"
+WebSearch: "[公司名] 研报 2025 评级"
 ```
+
+### Step 3: AI 综合评估
+
+基于脚本数据（定量）+ 搜索信息（定性），按三个维度给出判断。
 
 ---
 
@@ -100,15 +65,21 @@ Step 5: 补充信息（可选）
 
 ### 2. 财务表现
 
+**数据来自脚本 `finance` 模块返回的 JSON**：
+
+- `yearly_data` → 近3年营收、增速、利润率
+- `operating_cashflow` → 经营现金流
+- `free_cashflow` → 自由现金流（美股/港股）
+
 **达标标准**：
 
-| 指标 | 合格 | 优秀 |
-|------|------|------|
-| 年收入 | > 1亿美元（~7亿RMB） | > 10亿美元 |
-| 收入年增速 | 15-20% | > 30% |
-| EBIT Margin | 行业中上 | 行业Top 20% |
-| 经营现金流 | > 0 | > 净利润 |
-| 自由现金流 | > 0 | 连续3年为正 |
+| 指标 | 合格 | 优秀 | 脚本字段 |
+|------|------|------|----------|
+| 年收入 | > 1亿美元（~7亿RMB） | > 10亿美元 | `revenue` |
+| 收入年增速 | 15-20% | > 30% | `revenue_growth` |
+| EBIT Margin | 行业中上 | 行业Top 20% | `ebit_margin` |
+| 经营现金流 | > 0 | > 净利润 | `operating_cashflow` |
+| 自由现金流 | > 0 | 连续3年为正 | `free_cashflow` |
 
 **财务质量红旗**：
 - 应收增速 > 营收增速 → ⚠️ 赊销放宽
@@ -121,18 +92,24 @@ Step 5: 补充信息（可选）
 
 ### 3. 市场定价
 
+**数据来自脚本 `valuation` 模块返回的 JSON**：
+
+- `pe_ttm` / `pb` / `ps_ttm` → 当前估值
+- `pe_percentile_3y` / `pb_percentile_3y` → 历史分位（A股）
+- `52w_high` / `52w_low` → 价格区间
+
 **估值指标**：
 
-| 指标 | 适用场景 | 便宜 | 合理 | 贵 |
-|------|----------|------|------|-----|
-| P/E | 盈利稳定公司 | <15 | 15-25 | >40 |
-| P/S | 高增长未盈利 | <3 | 3-10 | >10 |
-| P/B | 重资产行业 | <1 | 1-3 | >5 |
-| EV/EBITDA | 跨国对比 | <8 | 8-15 | >15 |
+| 指标 | 适用场景 | 便宜 | 合理 | 贵 | 脚本字段 |
+|------|----------|------|------|-----|----------|
+| P/E | 盈利稳定公司 | <15 | 15-25 | >40 | `pe_ttm` |
+| P/S | 高增长未盈利 | <3 | 3-10 | >10 | `ps_ttm` |
+| P/B | 重资产行业 | <1 | 1-3 | >5 | `pb` |
+| EV/EBITDA | 跨国对比 | <8 | 8-15 | >15 | `ev_ebitda` |
 
 **评估方法**：
-1. 历史分位：当前 vs 过去5年（<20%=低估，>80%=高估）
-2. 同行对比：vs 可比公司，分析溢价/折价原因
+1. 历史分位：`pe_percentile_3y`（<20%=低估，>80%=高估）
+2. 同行对比：vs 可比公司（需 WebSearch 补充）
 3. 隐含预期：当前P/E隐含未来需要多高增速才合理？
 
 ---
@@ -156,21 +133,27 @@ Step 5: 补充信息（可选）
 护城河：[类型]
 
 ### 财务表现
-| 指标 | 数值 | 达标 |
-|------|------|------|
-| 年收入 | xxx亿 | ✓/✗ |
-| 收入增速 | xx% | ✓/✗ |
-| EBIT Margin | xx% | ✓/✗ |
-| 经营现金流 | xxx亿 | ✓/✗ |
-| 自由现金流 | xxx亿 | ✓/✗ |
+| 指标 | 数值 | 达标 | 来源 |
+|------|------|------|------|
+| 年收入 | xxx亿 | ✓/✗ | [腾讯/新浪API, 日期] |
+| 收入增速 | xx% | ✓/✗ | [同上] |
+| EBIT Margin | xx% | ✓/✗ | [同上] |
+| 经营现金流 | xxx亿 | ✓/✗ | [同上] |
+| 自由现金流 | xxx亿 | ✓/✗ | [同上] |
 
 ### 市场定价
 | 指标 | 当前 | 历史分位 | 同行均值 | 判断 |
 |------|------|----------|----------|------|
 | P/E | xx | xx% | xx | 贵/合理/便宜 |
+| P/B | xx | xx% | xx | 贵/合理/便宜 |
 
 隐含预期：[xxx]
 
 ### 风险提示
 - [xxx]
+
+### 数据来源
+- 财务数据：[腾讯/新浪API, 日期]
+- 估值数据：[腾讯/新浪API, 日期]
+- 商业模式：[搜索摘要, 日期]
 ```
